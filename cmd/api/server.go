@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"restapi/internal/api/middlewares"
+	"time"
 )
 
 func main() {
@@ -52,6 +53,7 @@ func main() {
 
 	// Apply all middlewares
 	handler := applyMiddlewares(http.DefaultServeMux)
+    
 
     server := &http.Server{
 		Addr:   ":" + port,
@@ -73,5 +75,10 @@ func applyMiddlewares(handler http.Handler) http.Handler {
 	handler = middlewares.CORS(handler)
 	handler = middlewares.ResponseTimeMiddleWare(handler)
 	handler = middlewares.SecurityHeaders(handler)
+	handler = middlewares.Compression(handler)
+	rl:= middlewares.NewRateLimiter(5, 1*time.Minute)
+	handler = rl.Middleware(handler)
+    
+
 	return handler
 }
