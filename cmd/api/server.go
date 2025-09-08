@@ -1,6 +1,10 @@
 package main
 
-import "net/http"
+import (
+	"fmt"
+	"net/http"
+	"strings"
+)
 
 func main() {
 
@@ -12,7 +16,9 @@ func main() {
 
 	http.HandleFunc("/teachers", func(w http.ResponseWriter, r *http.Request) {	
 		if(r.Method==http.MethodGet){
-			w.Write([]byte("GET Teachers endpoint"))			
+		
+			w.Write([]byte("GET Teachers endpoint"))		
+
 			return
 		}	
 		if(r.Method==http.MethodPost){
@@ -24,7 +30,26 @@ func main() {
 	http.HandleFunc("/students", func(w http.ResponseWriter, r *http.Request) {		
 		w.Write([]byte("Students endpoint"))			
 	})
-	err := http.ListenAndServe(port, nil)
+
+
+//path parameters
+	http.HandleFunc("/teachers/", func(w http.ResponseWriter, r *http.Request) {		
+		 fmt.Println(r.URL.Path)
+		 path:=strings.TrimPrefix(r.URL.Path,"/teachers/")
+		 userId:=strings.TrimSuffix(path,"/")
+		 fmt.Println("User ID:",userId)
+		 w.Write([]byte("Teacher ID: " + userId))		
+	}	)
+
+	//query parameters
+	http.HandleFunc("/search", func(w http.ResponseWriter, r *http.Request) {		
+		query := r.URL.Query().Get("q")
+		w.Write([]byte("Search query: " + query))			
+	}	)
+
+
+
+	err := http.ListenAndServe(":"+port, nil)
 	if err != nil {
 		panic(err)
 		
