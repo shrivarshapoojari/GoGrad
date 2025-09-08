@@ -50,9 +50,12 @@ func main() {
 		fmt.Println("Query Parameters:", query)
 	})
 
+	// Apply all middlewares
+	handler := applyMiddlewares(http.DefaultServeMux)
+
     server := &http.Server{
 		Addr:   ":" + port,
-		Handler: middlewares.ResponseTimeMiddleWare(http.DefaultServeMux),
+		Handler: handler,
 	}
 
 
@@ -62,4 +65,13 @@ func main() {
 
 	}
 
+}
+
+// Helper function to apply all middlewares in order
+func applyMiddlewares(handler http.Handler) http.Handler {
+	// Apply middlewares in reverse order (innermost first)
+	handler = middlewares.CORS(handler)
+	handler = middlewares.ResponseTimeMiddleWare(handler)
+	handler = middlewares.SecurityHeaders(handler)
+	return handler
 }
