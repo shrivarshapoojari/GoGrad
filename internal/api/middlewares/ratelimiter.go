@@ -21,7 +21,7 @@ func NewRateLimiter(limit int, resetTime time.Duration) *rateLimiter {
 		limit:     limit,
 		resetTime: resetTime,
 	}
-rl.resetVisitorCount()
+go rl.resetVisitorCount()
 	return rl
 	 
 }
@@ -50,7 +50,7 @@ func(rl * rateLimiter) Middleware(next http.Handler) http.Handler{
 			http.Error(w,"Too many requests",http.StatusTooManyRequests)
 			return
 		}
-		
+
 
 
 		next.ServeHTTP(w,r)
