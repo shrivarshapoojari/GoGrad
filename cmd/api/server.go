@@ -1,217 +1,22 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
-	"strconv"
-	"strings"
-
-	// "restapi/internal/api/middlewares"
-	"sync"
+	"restapi/internal/api/handlers"
 )
-
- type  Teacher struct {
-	ID   int
-	FirstName string
-	LastName string
-	Class string
-	Subject string
- }
-
-
-var  teachers =make(map[int] Teacher)
-var mutex = &sync.Mutex{}
-var nextId=1
-
-func init(){
-	teachers[nextId]=Teacher{
-		ID: nextId,
-		FirstName: "john",
-		LastName: "Doe",
-		Class: "9",
-		Subject: "Math",
-
-
-	}
-	nextId++;
-
-	teachers[nextId]=Teacher{
-		ID: nextId,
-		FirstName: "Jane",
-		LastName: "Smith",
-		Class: "10",
-		Subject: "Science",
-
-	}
-	nextId++;
-	teachers[nextId]=Teacher{
-		ID: nextId,
-		FirstName: "Alice",
-		LastName: "Johnson",
-		Class: "11",
-		Subject: "History",
-}
-
-
-}
-
-
-func getTeacherHandler(w http.ResponseWriter, r *http.Request) {
-
-
-	path := strings.TrimPrefix(r.URL.Path, "/teachers/")
-	idStr := strings.TrimSuffix(path, "/")
-
-	if idStr == "" {
-		firstName := r.URL.Query().Get("first_name")
-		lastName := r.URL.Query().Get("last_name")
-
-
-	 teacherList := make([]Teacher, 0, len(teachers))
-	for _, teacher := range teachers {
-		if (firstName=="" || teacher.FirstName==firstName)  && (lastName=="" || teacher.LastName==lastName) {
-		teacherList = append(teacherList, teacher)
-	}
- 
-
-	response := struct {
-		Status string   `json:"status"`
-		Count  int      `json:"count"`
-		Data   []Teacher `json:"data"`
-	}{
-		Status: "success",
-		Count:  len(teachers),
-		Data:   teacherList,
-	}
-   
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, "Error encoding response", http.StatusInternalServerError)
-		return
-	}
-}
-} else {
-
- 
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		http.Error(w, "Invalid teacher ID", http.StatusBadRequest)
-		return
-	}
-
-	teacher, exists := teachers[id]
-	if !exists {
-		http.Error(w, "Teacher not found", http.StatusNotFound)
-		return
-	}
-
-	response := struct {
-		Status string  `json:"status"`
-		Data   Teacher `json:"data"`
-	}{
-		Status: "success",
-		Data:   teacher,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, "Error encoding response", http.StatusInternalServerError)
-		return
-	}
-}
-}
-
-
-
-
-	 
-
-
 
 func teachersHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
-		getTeacherHandler(w,r)
+		handlers.GetTeacherHandler(w, r)
 	}
 	if r.Method == http.MethodPost {
-		err := r.ParseForm()
-		if err != nil {
-			http.Error(w, "Error parsing form", http.StatusBadRequest)
-			return
-		}
-		firstName := r.FormValue("first_name")
-		lastName := r.FormValue("last_name")
-		class := r.FormValue("class")
-		subject := r.FormValue("subject")
-		if firstName == "" || lastName == "" || class == "" || subject == "" {
-			http.Error(w, "Missing required fields", http.StatusBadRequest)
-			return
-		}
-		mutex.Lock()
-		defer mutex.Unlock()
-		teacher := Teacher{
-			ID:        nextId,
-			FirstName: firstName,
-			LastName:  lastName,
-			Class:     class,
-			Subject:   subject,
-		}
-		teachers[nextId] = teacher
-		nextId++
-		w.WriteHeader(http.StatusCreated)
-		fmt.Fprintf(w, "Teacher created with ID: %d\n", teacher.ID)
-		return
+		handlers.AddTeacherHandler(w, r)
 	}
 }
-
-
-func addTeacherHandler(w http.ResponseWriter, r *http.Request) {
-
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	var newTeachers[] Teacher
-	err := json.NewDecoder(r.Body).Decode(&newTeachers)
-	if err != nil {
-		http.Error(w, "Invalid request payload", http.StatusBadRequest)
-		return
-	}
-
-	addedTeachers := make([]Teacher, 0, len(newTeachers))
-	for _, t := range newTeachers {
-		if t.FirstName == "" || t.LastName == "" || t.Class == "" || t.Subject == "" {
-			http.Error(w, "Missing required fields in one of the teachers", http.StatusBadRequest)
-			return
-		}
-		t.ID = nextId
-		teachers[nextId] = t
-		nextId++
-		addedTeachers = append(addedTeachers, t)
-	}
-	response := struct {
-		Status string   `json:"status"`
-		Count  int      `json:"count"`
-		Data   []Teacher `json:"data"`
-	}{
-		Status: "success",
-		Count:  len(addedTeachers),
-		Data:   addedTeachers,
-	}
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, "Error encoding response", http.StatusInternalServerError)
-		return
-	}
-}
-
-
-
-
 
 func studentsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Students endpoint"))
 }
-
 
 func main() {
 
@@ -224,7 +29,6 @@ func main() {
 	http.HandleFunc("/teachers/", teachersHandler)
 	http.HandleFunc("/students", studentsHandler)
 
-	 
 	// handler := applyMiddlewares(
 	// 	http.DefaultServeMux,
 	// 	middlewares.CORS,
