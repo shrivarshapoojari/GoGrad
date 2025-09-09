@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"restapi/internal/api/middlewares"
+	"strconv"
+	"strings"
+
+	// "restapi/internal/api/middlewares"
 	"sync"
 )
 
@@ -55,8 +58,19 @@ func init(){
 
 
 func getTeacherHandler(w http.ResponseWriter, r *http.Request) {
+
+
+	path := strings.TrimPrefix(r.URL.Path, "/teachers/")
+	idStr := strings.TrimSuffix(path, "/")
+
+	if idStr == "" {
+		firstName := r.URL.Query().Get("first_name")
+		lastName := r.URL.Query().Get("last_name")
+
+
 	 teacherList := make([]Teacher, 0, len(teachers))
 	for _, teacher := range teachers {
+		if (firstName=="" || teacher.FirstName==firstName)  && (lastName=="" || teacher.LastName==lastName) {
 		teacherList = append(teacherList, teacher)
 	}
  
@@ -76,8 +90,43 @@ func getTeacherHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error encoding response", http.StatusInternalServerError)
 		return
 	}
-	 
 }
+} else {
+
+ 
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid teacher ID", http.StatusBadRequest)
+		return
+	}
+
+	teacher, exists := teachers[id]
+	if !exists {
+		http.Error(w, "Teacher not found", http.StatusNotFound)
+		return
+	}
+
+	response := struct {
+		Status string  `json:"status"`
+		Data   Teacher `json:"data"`
+	}{
+		Status: "success",
+		Data:   teacher,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Error encoding response", http.StatusInternalServerError)
+		return
+	}
+}
+}
+
+
+
+
+	 
+
 
 
 func teachersHandler(w http.ResponseWriter, r *http.Request) {
@@ -129,20 +178,20 @@ func main() {
 		w.Write([]byte("Hello, World!"))
 	})
 
-	http.HandleFunc("/teachers", teachersHandler)
+	http.HandleFunc("/teachers/", teachersHandler)
 	http.HandleFunc("/students", studentsHandler)
 
 	 
-	handler := applyMiddlewares(
-		http.DefaultServeMux,
-		middlewares.CORS,
-		middlewares.SecurityHeaders,
-		middlewares.ResponseTimeMiddleWare,
-	)
+	// handler := applyMiddlewares(
+	// 	http.DefaultServeMux,
+	// 	middlewares.CORS,
+	// 	middlewares.SecurityHeaders,
+	// 	middlewares.ResponseTimeMiddleWare,
+	// )
 
 	server := &http.Server{
 		Addr:    ":" + port,
-		Handler: handler,
+		Handler: http.DefaultServeMux,
 	}
 
 	err := server.ListenAndServe()
@@ -153,13 +202,13 @@ func main() {
 
 }
 
-type Middleware func(http.Handler) http.Handler
+// type Middleware func(http.Handler) http.Handler
 
-func applyMiddlewares(handler http.Handler, middlewares ...Middleware) http.Handler {
+// func applyMiddlewares(handler http.Handler, middlewares ...Middleware) http.Handler {
 
-	for _, middleware := range middlewares {
-		handler = middleware(handler)
-	}
-	return handler
+// 	for _, middleware := range middlewares {
+// 		handler = middleware(handler)
+// 	}
+// 	return handler
 
-}
+// }
