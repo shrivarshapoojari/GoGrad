@@ -165,6 +165,49 @@ func teachersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 
+func addTeacherHandler(w http.ResponseWriter, r *http.Request) {
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	var newTeachers[] Teacher
+	err := json.NewDecoder(r.Body).Decode(&newTeachers)
+	if err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	addedTeachers := make([]Teacher, 0, len(newTeachers))
+	for _, t := range newTeachers {
+		if t.FirstName == "" || t.LastName == "" || t.Class == "" || t.Subject == "" {
+			http.Error(w, "Missing required fields in one of the teachers", http.StatusBadRequest)
+			return
+		}
+		t.ID = nextId
+		teachers[nextId] = t
+		nextId++
+		addedTeachers = append(addedTeachers, t)
+	}
+	response := struct {
+		Status string   `json:"status"`
+		Count  int      `json:"count"`
+		Data   []Teacher `json:"data"`
+	}{
+		Status: "success",
+		Count:  len(addedTeachers),
+		Data:   addedTeachers,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Error encoding response", http.StatusInternalServerError)
+		return
+	}
+}
+
+
+
+
+
 func studentsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Students endpoint"))
 }
