@@ -2,6 +2,7 @@ package middlewares
 
 import (
 	"net/http"
+	"fmt"
 
 )
 
@@ -69,5 +70,7 @@ func isWhiteListed(param string, whitelist []string) bool {
 		if p == param {
 			return true
 		}
-		return  false
+	}
+	
+	return false
 }

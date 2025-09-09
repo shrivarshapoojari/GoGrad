@@ -3,10 +3,104 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"restapi/internal/api/middlewares"
-	"time"
+	"strings"
+	"sync"
 )
+
+ type  Teacher struct {
+	ID   int
+	FirstName string
+	LastName string
+	Class string
+	Subject string
+ }
+
+
+var  teachers =make(map[int] Teacher)
+var mutex = &sync.Mutex{}
+var nextId=1
+
+func init(){
+	teachers[nextId]=Teacher{
+		ID: nextId,
+		FirstName: "john",
+		LastName: "Doe",
+		Class: "9",
+		Subject: "Math",
+
+
+	}
+	nextId++;
+
+	teachers[nextId]=Teacher{
+		ID: nextId,
+		FirstName: "Jane",
+		LastName: "Smith",
+		Class: "10",
+		Subject: "Science",
+
+	}
+	nextId++;
+	teachers[nextId]=Teacher{
+		ID: nextId,
+		FirstName: "Alice",
+		LastName: "Johnson",
+		Class: "11",
+		Subject: "History",
+}
+
+
+}
+
+func teachersHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		mutex.Lock()
+		defer mutex.Unlock()
+
+		// Return the list of teachers
+		for _, teacher := range teachers {
+			fmt.Fprintf(w, "ID: %d, Name: %s %s, Class: %s, Subject: %s\n",
+				teacher.ID, teacher.FirstName, teacher.LastName, teacher.Class, teacher.Subject)
+		}
+		return
+	}
+	if r.Method == http.MethodPost {
+		err := r.ParseForm()
+		if err != nil {
+			http.Error(w, "Error parsing form", http.StatusBadRequest)
+			return
+		}
+		firstName := r.FormValue("first_name")
+		lastName := r.FormValue("last_name")
+		class := r.FormValue("class")
+		subject := r.FormValue("subject")
+		if firstName == "" || lastName == "" || class == "" || subject == "" {
+			http.Error(w, "Missing required fields", http.StatusBadRequest)
+			return
+		}
+		mutex.Lock()
+		defer mutex.Unlock()
+		teacher := Teacher{
+			ID:        nextId,
+			FirstName: firstName,
+			LastName:  lastName,
+			Class:     class,
+			Subject:   subject,
+		}
+		teachers[nextId] = teacher
+		nextId++
+		w.WriteHeader(http.StatusCreated)
+		fmt.Fprintf(w, "Teacher created with ID: %d\n", teacher.ID)
+		return
+	}
+}
+
+
+func studentsHandler(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("Students endpoint"))
+}
+
 
 func main() {
 
@@ -16,52 +110,23 @@ func main() {
 		w.Write([]byte("Hello, World!"))
 	})
 
-	http.HandleFunc("/teachers", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
+	http.HandleFunc("/teachers", teachersHandler)
+	http.HandleFunc("/students", studentsHandler)
 
-			w.Write([]byte("GET Teachers endpoint"))
+	 
+	handler := applyMiddlewares(
+		http.DefaultServeMux,
+		middlewares.CORS,
+		middlewares.SecurityHeaders,
+		middlewares.ResponseTimeMiddleWare,
+	)
 
-			return
-		}
-		if r.Method == http.MethodPost {
-			w.Write([]byte("POST Teachers endpoint"))
-			return
-		}
-	})
-
-	http.HandleFunc("/students", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Students endpoint"))
-		
-	})
-
-	//path parameters
-	http.HandleFunc("/teachers/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println(r.URL.Path)
-		path := strings.TrimPrefix(r.URL.Path, "/teachers/")
-		userId := strings.TrimSuffix(path, "/")
-		fmt.Println("User ID:", userId)
-		w.Write([]byte("Teacher ID: " + userId))
-	})
-
-	//query parameters
-
-	http.HandleFunc("/search", func(w http.ResponseWriter, r *http.Request) {
-		query := r.URL.Query().Get("q")
-
-		fmt.Println("Query Parameters:", query)
-	})
-
-	// Apply all middlewares
-	handler := applyMiddlewares(http.DefaultServeMux)
-    
-
-    server := &http.Server{
-		Addr:   ":" + port,
+	server := &http.Server{
+		Addr:    ":" + port,
 		Handler: handler,
 	}
 
-
-	err :=server.ListenAndServe()
+	err := server.ListenAndServe()
 	if err != nil {
 		panic(err)
 
@@ -69,16 +134,13 @@ func main() {
 
 }
 
-// Helper function to apply all middlewares in order
-func applyMiddlewares(handler http.Handler) http.Handler {
-	// Apply middlewares in reverse order (innermost first)
-	handler = middlewares.CORS(handler)
-	handler = middlewares.ResponseTimeMiddleWare(handler)
-	handler = middlewares.SecurityHeaders(handler)
-	handler = middlewares.Compression(handler)
-	rl:= middlewares.NewRateLimiter(5, 1*time.Minute)
-	handler = rl.Middleware(handler)
-    
+type Middleware func(http.Handler) http.Handler
 
+func applyMiddlewares(handler http.Handler, middlewares ...Middleware) http.Handler {
+
+	for _, middleware := range middlewares {
+		handler = middleware(handler)
+	}
 	return handler
+
 }
