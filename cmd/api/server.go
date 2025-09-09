@@ -1,10 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"restapi/internal/api/middlewares"
-	"strings"
 	"sync"
 )
 
@@ -53,17 +53,36 @@ func init(){
 
 }
 
+
+func getTeacherHandler(w http.ResponseWriter, r *http.Request) {
+	 teacherList := make([]Teacher, 0, len(teachers))
+	for _, teacher := range teachers {
+		teacherList = append(teacherList, teacher)
+	}
+ 
+
+	response := struct {
+		Status string   `json:"status"`
+		Count  int      `json:"count"`
+		Data   []Teacher `json:"data"`
+	}{
+		Status: "success",
+		Count:  len(teachers),
+		Data:   teacherList,
+	}
+   
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Error encoding response", http.StatusInternalServerError)
+		return
+	}
+	 
+}
+
+
 func teachersHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
-		mutex.Lock()
-		defer mutex.Unlock()
-
-		// Return the list of teachers
-		for _, teacher := range teachers {
-			fmt.Fprintf(w, "ID: %d, Name: %s %s, Class: %s, Subject: %s\n",
-				teacher.ID, teacher.FirstName, teacher.LastName, teacher.Class, teacher.Subject)
-		}
-		return
+		getTeacherHandler(w,r)
 	}
 	if r.Method == http.MethodPost {
 		err := r.ParseForm()
