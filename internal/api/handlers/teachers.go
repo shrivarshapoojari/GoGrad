@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"restapi/internal/models"
 	"restapi/internal/repository/sqlconnect"
 	"strconv"
@@ -14,16 +15,27 @@ import (
 // Database connection (initialized once)
 var db *sql.DB
 
+// Email validation regex pattern
+var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+
 func init() {
 	// Initialize database connection
 	db = sqlconnect.ConnectDb()
 }
 
+// isValidEmail validates email format
+func isValidEmail(email string) bool {
+	return emailRegex.MatchString(email)
+}
+
 func TeachersHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Print("TeachersHandler invoked\n")
+	fmt.Print(r.Method + "\n")
 	if r.Method == http.MethodGet {
 		GetTeacherHandler(w, r)
 	}
 	if r.Method == http.MethodPost {
+		fmt.Print("Adding new teacher\n")
 		AddTeacherHandler(w, r)
 	}
 }
@@ -42,22 +54,28 @@ func AddTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	addedTeachers := make([]models.Teacher, 0, len(newTeachers))
 
 	// Prepare SQL statement for inserting teachers
-	insertSQL := "INSERT INTO teachers (first_name, last_name, class, subject) VALUES (?, ?, ?, ?)"
+	insertSQL := "INSERT INTO teachers (first_name, last_name, email, class, subject) VALUES (?, ?, ?, ?, ?)"
 
 	for _, t := range newTeachers {
-		if t.FirstName == "" || t.LastName == "" || t.Class == "" || t.Subject == "" {
+		if t.FirstName == "" || t.LastName == "" || t.Email == "" || t.Class == "" || t.Subject == "" {
 			http.Error(w, "Missing required fields in one of the teachers", http.StatusBadRequest)
 			return
 		}
 
+		// Validate email format
+		if !isValidEmail(t.Email) {
+			http.Error(w, fmt.Sprintf("Invalid email format: %s", t.Email), http.StatusBadRequest)
+			return
+		}
+
 		// Execute INSERT query
-		result, err := db.Exec(insertSQL, t.FirstName, t.LastName, t.Class, t.Subject)
+		result, err := db.Exec(insertSQL, t.FirstName, t.LastName, t.Email, t.Class, t.Subject)
 		if err != nil {
 			fmt.Printf("Error inserting teacher: %v\n", err)
 			http.Error(w, "Error adding teacher to database", http.StatusInternalServerError)
 			return
 		}
-
+		fmt.Println(result)
 		// Get the auto-generated ID
 		id, err := result.LastInsertId()
 		if err != nil {
@@ -103,7 +121,7 @@ func GetTeacherHandler(w http.ResponseWriter, r *http.Request) {
 
 		// Build query based on filters
 		if firstName != "" || lastName != "" {
-			query := "SELECT id, first_name, last_name, class, subject FROM teachers WHERE 1=1"
+			query := "SELECT id, first_name, last_name, email, class, subject FROM teachers WHERE 1=1"
 			args := []interface{}{}
 
 			if firstName != "" {
@@ -118,7 +136,7 @@ func GetTeacherHandler(w http.ResponseWriter, r *http.Request) {
 			rows, err = db.Query(query, args...)
 		} else {
 			// Get all teachers
-			rows, err = db.Query("SELECT id, first_name, last_name, class, subject FROM teachers")
+			rows, err = db.Query("SELECT id, first_name, last_name, email, class, subject FROM teachers")
 		}
 
 		if err != nil {
@@ -131,7 +149,7 @@ func GetTeacherHandler(w http.ResponseWriter, r *http.Request) {
 		// Scan results
 		for rows.Next() {
 			var teacher models.Teacher
-			err := rows.Scan(&teacher.ID, &teacher.FirstName, &teacher.LastName, &teacher.Class, &teacher.Subject)
+			err := rows.Scan(&teacher.ID, &teacher.FirstName, &teacher.LastName, &teacher.Email, &teacher.Class, &teacher.Subject)
 			if err != nil {
 				fmt.Printf("Error scanning teacher row: %v\n", err)
 				http.Error(w, "Error processing teacher data", http.StatusInternalServerError)
@@ -171,10 +189,10 @@ func GetTeacherHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var teacher models.Teacher
-		query := "SELECT id, first_name, last_name, class, subject FROM teachers WHERE id = ?"
+		query := "SELECT id, first_name, last_name, email, class, subject FROM teachers WHERE id = ?"
 		row := db.QueryRow(query, id)
 
-		err = row.Scan(&teacher.ID, &teacher.FirstName, &teacher.LastName, &teacher.Class, &teacher.Subject)
+		err = row.Scan(&teacher.ID, &teacher.FirstName, &teacher.LastName, &teacher.Email, &teacher.Class, &teacher.Subject)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				http.Error(w, "Teacher not found", http.StatusNotFound)
