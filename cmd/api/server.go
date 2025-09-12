@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"restapi/internal/api/router"
+	"restapi/internal/repository/sqlconnect"
 )
 
 func main() {
@@ -10,6 +11,7 @@ func main() {
 	port := "3000"
 	println("Server is running on port " + port)
 
+	sqlconnect.ConnectDb()
 	// Use the router to get configured mux
 	mux := router.Router()
 

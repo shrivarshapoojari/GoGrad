@@ -1,14 +1,20 @@
 package sqlconnect
 
-import "database/sql"
+import (
+	"database/sql"
+	"fmt"
 
-func ConnectDb() *sql.DB{
+	_ "github.com/go-sql-driver/mysql" 
+)
 
-	connectionString:="root:root@tcp(127.0.0.1:3306)/gograd"
-	db,err:=sql.Open("mysql",connectionString)
+func ConnectDb() *sql.DB {
 
-	if err!=nil{
+	connectionString := "root:root@tcp(127.0.0.1:3306)/gograd"
+	db, err := sql.Open("mysql", connectionString)
+
+	if err != nil {
 		panic(err)
 	}
-	return db;
+	fmt.Println("Connected to database successfully")
+	return db
 }
