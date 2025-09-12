@@ -2,43 +2,20 @@ package main
 
 import (
 	"net/http"
-	"restapi/internal/api/handlers"
+	"restapi/internal/api/router"
 )
-
-func teachersHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodGet {
-		handlers.GetTeacherHandler(w, r)
-	}
-	if r.Method == http.MethodPost {
-		handlers.AddTeacherHandler(w, r)
-	}
-}
-
-func studentsHandler(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Students endpoint"))
-}
 
 func main() {
 
 	port := "3000"
 	println("Server is running on port " + port)
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Hello, World!"))
-	})
 
-	http.HandleFunc("/teachers/", teachersHandler)
-	http.HandleFunc("/students", studentsHandler)
-
-	// handler := applyMiddlewares(
-	// 	http.DefaultServeMux,
-	// 	middlewares.CORS,
-	// 	middlewares.SecurityHeaders,
-	// 	middlewares.ResponseTimeMiddleWare,
-	// )
+	// Use the router to get configured mux
+	mux := router.Router()
 
 	server := &http.Server{
 		Addr:    ":" + port,
-		Handler: http.DefaultServeMux,
+		Handler: mux,
 	}
 
 	err := server.ListenAndServe()
