@@ -39,6 +39,10 @@ func TeachersHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Print("Patching teacher\n")
 		patchTeacherHandler(w, r)
 	}
+	if r.Method == http.MethodDelete {
+		fmt.Print("Deleting teacher\n")
+		deleteTeacherHandler(w, r) 
+}
 }
 
 func AddTeacherHandler(w http.ResponseWriter, r *http.Request) {
@@ -372,4 +376,37 @@ func patchTeacherHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+}
+
+
+
+func deleteTeacherHandler(w http.ResponseWriter, r *http.Request) {
+	db := sqlconnect.ConnectDb()
+	defer db.Close()
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	idStr := strings.TrimPrefix(r.URL.Path, "/teachers/")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid teacher ID", http.StatusBadRequest)
+		return
+	}
+	_, err = db.Exec("DELETE FROM teachers WHERE id = ?", id)
+	if err != nil {
+		fmt.Printf("Error deleting teacher: %v\n", err)
+		http.Error(w, "Error deleting teacher from database", http.StatusInternalServerError)
+		return
+	}
+	response := struct {
+		Status string `json:"status"`
+	}{
+		Status: "success",
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Error encoding response", http.StatusInternalServerError)
+		return
+	}
 }
