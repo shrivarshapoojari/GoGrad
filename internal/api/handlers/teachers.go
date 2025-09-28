@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"reflect"
 	"regexp"
 	"restapi/internal/models"
 	"restapi/internal/repository/sqlconnect"
@@ -223,7 +224,6 @@ func GetTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-
 func updateTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	db := sqlconnect.ConnectDb()
 	defer db.Close()
@@ -277,7 +277,7 @@ func patchTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPatch {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
-	}	
+	}
 	idStr := strings.TrimPrefix(r.URL.Path, "/teachers/")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -291,7 +291,6 @@ func patchTeacherHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-
 
 	var existingTeacher models.Teacher
 	err = db.QueryRow("SELECT id, first_name, last_name, email, class, subject FROM teachers WHERE id = ?", id).Scan(
@@ -311,18 +310,35 @@ func patchTeacherHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error retrieving teacher from database", http.StatusInternalServerError)
 		return
 	}
-	for field, value := range updatedFields {
-		switch field {
-		case "first_name":
-			existingTeacher.FirstName = value.(string)
-		case "last_name":
-			existingTeacher.LastName = value.(string)
-		case "email":
-			existingTeacher.Email = value.(string)
-		case "class":
-			existingTeacher.Class = value.(string)
-		case "subject":
-			existingTeacher.Subject = value.(string)
+	// for field, value := range updatedFields {
+	// 	switch field {
+	// 	case "first_name":
+	// 		existingTeacher.FirstName = value.(string)
+	// 	case "last_name":
+	// 		existingTeacher.LastName = value.(string)
+	// 	case "email":
+	// 		existingTeacher.Email = value.(string)
+	// 	case "class":
+	// 		existingTeacher.Class = value.(string)
+	// 	case "subject":
+	// 		existingTeacher.Subject = value.(string)
+	// 	}
+	// }
+
+	// apply update using reflect
+	teacherVal := reflect.ValueOf(&existingTeacher).Elem()
+	teacherType := teacherVal.Type()
+
+	for k, v := range updatedFields {
+		for i := 0; i < teacherVal.NumField(); i++ {
+			field := teacherType.Field(i)
+			if field.Tag.Get("json") == k {
+				 
+				if teacherVal.Field(i).CanSet() {
+					teacherVal.Field(i).Set(reflect.ValueOf(v).Convert(teacherVal.Field(i).Type()))
+				}
+
+			}
 		}
 	}
 
@@ -348,10 +364,12 @@ func patchTeacherHandler(w http.ResponseWriter, r *http.Request) {
 		Status: "success",
 		Data:   existingTeacher,
 	}
+	fmt.Print("Patching teacher\n")
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, "Error encoding response", http.StatusInternalServerError)
 		return
 	}
+
 }
