@@ -41,8 +41,8 @@ func TeachersHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method == http.MethodDelete {
 		fmt.Print("Deleting teacher\n")
-		deleteTeacherHandler(w, r) 
-}
+		deleteTeacherHandler(w, r)
+	}
 }
 
 func AddTeacherHandler(w http.ResponseWriter, r *http.Request) {
@@ -337,7 +337,7 @@ func patchTeacherHandler(w http.ResponseWriter, r *http.Request) {
 		for i := 0; i < teacherVal.NumField(); i++ {
 			field := teacherType.Field(i)
 			if field.Tag.Get("json") == k {
-				 
+
 				if teacherVal.Field(i).CanSet() {
 					teacherVal.Field(i).Set(reflect.ValueOf(v).Convert(teacherVal.Field(i).Type()))
 				}
@@ -378,8 +378,6 @@ func patchTeacherHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-
-
 func deleteTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	db := sqlconnect.ConnectDb()
 	defer db.Close()
@@ -393,10 +391,20 @@ func deleteTeacherHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid teacher ID", http.StatusBadRequest)
 		return
 	}
-	_, err = db.Exec("DELETE FROM teachers WHERE id = ?", id)
+	result, err := db.Exec("DELETE FROM teachers WHERE id = ?", id)
 	if err != nil {
 		fmt.Printf("Error deleting teacher: %v\n", err)
 		http.Error(w, "Error deleting teacher from database", http.StatusInternalServerError)
+		return
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		fmt.Printf("Error getting rows affected: %v\n", err)
+		http.Error(w, "Error checking deletion result", http.StatusInternalServerError)
+		return
+	}
+	if rowsAffected == 0 {
+		http.Error(w, "Teacher not found", http.StatusNotFound)
 		return
 	}
 	response := struct {
