@@ -12,16 +12,8 @@ import (
 	"strings"
 )
 
-// Database connection (initialized once)
-var db *sql.DB
-
 // Email validation regex pattern
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
-
-func init() {
-	// Initialize database connection
-	db = sqlconnect.ConnectDb()
-}
 
 // isValidEmail validates email format
 func isValidEmail(email string) bool {
@@ -38,9 +30,19 @@ func TeachersHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Print("Adding new teacher\n")
 		AddTeacherHandler(w, r)
 	}
+	if r.Method == http.MethodPut {
+		fmt.Print("Updating teacher\n")
+		updateTeacherHandler(w, r)
+	}
+	if r.Method == http.MethodPatch {
+		fmt.Print("Patching teacher\n")
+		patchTeacherHandler(w, r)
+	}
 }
 
 func AddTeacherHandler(w http.ResponseWriter, r *http.Request) {
+	db := sqlconnect.ConnectDb()
+	defer db.Close()
 	fmt.Print("Adding new teachers\n")
 
 	var newTeachers []models.Teacher
@@ -107,6 +109,8 @@ func AddTeacherHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetTeacherHandler(w http.ResponseWriter, r *http.Request) {
+	db := sqlconnect.ConnectDb()
+	defer db.Close()
 	path := strings.TrimPrefix(r.URL.Path, "/teachers/")
 	idStr := strings.TrimSuffix(path, "/")
 
@@ -219,11 +223,14 @@ func GetTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+
 func updateTeacherHandler(w http.ResponseWriter, r *http.Request) {
+	db := sqlconnect.ConnectDb()
+	defer db.Close()
 	if r.Method != http.MethodPut {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
-	}	
+	}
 
 	idStr := strings.TrimPrefix(r.URL.Path, "/teachers/")
 	id, err := strconv.Atoi(idStr)
@@ -253,6 +260,93 @@ func updateTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	}{
 		Status: "success",
 		Data:   updatedTeacher,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Error encoding response", http.StatusInternalServerError)
+		return
+	}
+}
+
+// PATCH /teachers/{id}
+
+func patchTeacherHandler(w http.ResponseWriter, r *http.Request) {
+	db := sqlconnect.ConnectDb()
+	defer db.Close()
+	if r.Method != http.MethodPatch {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}	
+	idStr := strings.TrimPrefix(r.URL.Path, "/teachers/")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid teacher ID", http.StatusBadRequest)
+		return
+	}
+	var updatedFields map[string]interface{}
+	err = json.NewDecoder(r.Body).Decode(&updatedFields)
+
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+
+	var existingTeacher models.Teacher
+	err = db.QueryRow("SELECT id, first_name, last_name, email, class, subject FROM teachers WHERE id = ?", id).Scan(
+		&existingTeacher.ID,
+		&existingTeacher.FirstName,
+		&existingTeacher.LastName,
+		&existingTeacher.Email,
+		&existingTeacher.Class,
+		&existingTeacher.Subject,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Teacher not found", http.StatusNotFound)
+			return
+		}
+		fmt.Printf("Error retrieving existing teacher: %v\n", err)
+		http.Error(w, "Error retrieving teacher from database", http.StatusInternalServerError)
+		return
+	}
+	for field, value := range updatedFields {
+		switch field {
+		case "first_name":
+			existingTeacher.FirstName = value.(string)
+		case "last_name":
+			existingTeacher.LastName = value.(string)
+		case "email":
+			existingTeacher.Email = value.(string)
+		case "class":
+			existingTeacher.Class = value.(string)
+		case "subject":
+			existingTeacher.Subject = value.(string)
+		}
+	}
+
+	// Save the updated teacher record back to the database
+	_, err = db.Exec("UPDATE teachers SET first_name = ?, last_name = ?, email = ?, class = ?, subject = ? WHERE id = ?",
+		existingTeacher.FirstName,
+		existingTeacher.LastName,
+		existingTeacher.Email,
+		existingTeacher.Class,
+		existingTeacher.Subject,
+		existingTeacher.ID,
+	)
+	if err != nil {
+		fmt.Printf("Error updating teacher: %v\n", err)
+		http.Error(w, "Error updating teacher in database", http.StatusInternalServerError)
+		return
+	}
+
+	response := struct {
+		Status string         `json:"status"`
+		Data   models.Teacher `json:"data"`
+	}{
+		Status: "success",
+		Data:   existingTeacher,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
