@@ -218,3 +218,46 @@ func GetTeacherHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
+
+func updateTeacherHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}	
+
+	idStr := strings.TrimPrefix(r.URL.Path, "/teachers/")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid teacher ID", http.StatusBadRequest)
+		return
+	}
+	var updatedTeacher models.Teacher
+	err = json.NewDecoder(r.Body).Decode(&updatedTeacher)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Update teacher in the database
+	query := "UPDATE teachers SET first_name = ?, last_name = ?, email = ?, class = ?, subject = ? WHERE id = ?"
+	_, err = db.Exec(query, updatedTeacher.FirstName, updatedTeacher.LastName, updatedTeacher.Email, updatedTeacher.Class, updatedTeacher.Subject, id)
+	if err != nil {
+		fmt.Printf("Error updating teacher: %v\n", err)
+		http.Error(w, "Error updating teacher in database", http.StatusInternalServerError)
+		return
+	}
+
+	response := struct {
+		Status string         `json:"status"`
+		Data   models.Teacher `json:"data"`
+	}{
+		Status: "success",
+		Data:   updatedTeacher,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Error encoding response", http.StatusInternalServerError)
+		return
+	}
+}
