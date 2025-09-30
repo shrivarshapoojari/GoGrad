@@ -21,29 +21,7 @@ func isValidEmail(email string) bool {
 	return emailRegex.MatchString(email)
 }
 
-func TeachersHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Print("TeachersHandler invoked\n")
-	fmt.Print(r.Method + "\n")
-	if r.Method == http.MethodGet {
-		GetTeacherHandler(w, r)
-	}
-	if r.Method == http.MethodPost {
-		fmt.Print("Adding new teacher\n")
-		AddTeacherHandler(w, r)
-	}
-	if r.Method == http.MethodPut {
-		fmt.Print("Updating teacher\n")
-		updateTeacherHandler(w, r)
-	}
-	if r.Method == http.MethodPatch {
-		fmt.Print("Patching teacher\n")
-		patchTeacherHandler(w, r)
-	}
-	if r.Method == http.MethodDelete {
-		fmt.Print("Deleting teacher\n")
-		deleteTeacherHandler(w, r)
-	}
-}
+ 
 
 func AddTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	db := sqlconnect.ConnectDb()
@@ -228,7 +206,7 @@ func GetTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func updateTeacherHandler(w http.ResponseWriter, r *http.Request) {
+func UpdateTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	db := sqlconnect.ConnectDb()
 	defer db.Close()
 	if r.Method != http.MethodPut {
@@ -275,7 +253,7 @@ func updateTeacherHandler(w http.ResponseWriter, r *http.Request) {
 
 // PATCH /teachers/{id}
 
-func patchTeacherHandler(w http.ResponseWriter, r *http.Request) {
+func PatchTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	db := sqlconnect.ConnectDb()
 	defer db.Close()
 	if r.Method != http.MethodPatch {
@@ -378,7 +356,7 @@ func patchTeacherHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func deleteTeacherHandler(w http.ResponseWriter, r *http.Request) {
+func DeleteTeacherHandler(w http.ResponseWriter, r *http.Request) {
 	db := sqlconnect.ConnectDb()
 	defer db.Close()
 	if r.Method != http.MethodDelete {
@@ -418,3 +396,4 @@ func deleteTeacherHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
